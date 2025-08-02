@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>従業員ログイン</title>
+</head>
+<body>
+  <h1>ログイン</h1>
+  <input type="password" id="pw" placeholder="パスワードを入力" />
+  <button onclick="login()">ログイン</button>
+
+  <script>
+    async function login() {
+      const input = document.getElementById("pw").value;
+      const encoder = new TextEncoder();
+      const data = encoder.encode(input);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const correctHash = "39c3cb6b2a66ec4639f1e57ae47ae0125ce5d6bb8937d26e6cf4bafbc02f3061";
+
+      if (hashHex === correctHash) {
+        sessionStorage.setItem("auth", "ok");
+        window.location.href = "/employee/";
+      } else {
+        alert("パスワードが違います。");
+      }
+    }
+  </script>
+</body>
+</html>
