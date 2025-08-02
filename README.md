@@ -1,1 +1,1 @@
-# 3Teeeeer.github.io
+# tera-corp.github.io
