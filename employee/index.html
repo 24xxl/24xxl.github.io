@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>従業員専用ページ</title>
+  <script>
+    if (sessionStorage.getItem("auth") !== "ok") {
+      window.location.href = "/login/";
+    }
+  </script>
+</head>
+<body>
+  <h1>ようこそ、従業員ページへ</h1>
+  <p>ここはログインした人だけが見られるページです。</p>
+  <button onclick="logout()">ログアウト</button>
+
+  <script>
+    function logout() {
+      sessionStorage.removeItem("auth");
+      window.location.href = "/login/";
+    }
+  </script>
+</body>
+</html>
