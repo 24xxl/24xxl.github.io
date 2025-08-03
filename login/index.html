@@ -18,7 +18,7 @@
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const correctHash = "8b01509f2fd790b19d55755f5c69e331b8f76405e28194a56e68c0bde394f760";
+      const correctHash = "47566ea7f77b0b848060798a9596b19ed5fe5415ffb3a2174a3db1a0e06d9ed1";
 
       if (hashHex === correctHash) {
         sessionStorage.setItem("auth", "ok");
