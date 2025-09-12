@@ -3,16 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>漢字ゲーム スクリーンショット記録ツール</title>
-  <!-- html2canvas and JSZip CDNs -->
+  <title>Site not found · GitHub Pages</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo, sans-serif;margin:16px}
     button{margin:4px}
     .controls{display:flex;gap:8px;flex-wrap:wrap}
-    .thumb{height:80px;border:1px solid #ddd;margin:4px}
-    .entry{display:flex;align-items:center;gap:8px;padding:6px;border:1px solid #eee;margin-bottom:6px}
+    .thumb{height:80px;border:1px solid #ddd;margin:4px;cursor:pointer}
+    .entry{display:flex;align-items:flex-start;gap:8px;padding:6px;border:1px solid #eee;margin-bottom:6px}
     .gallery{display:flex;flex-wrap:wrap}
     label{font-weight:600}
     input[type=text]{padding:6px;min-width:200px}
@@ -20,42 +19,41 @@
   </style>
 </head>
 <body>
-  <h1>漢字ゲーム スクリーンショット記録ツール</h1>
-  <p>このページは、画面上の要素（ゲーム）をキャプチャして、読み（ルビ）を入力・保存・エクスポートするシンプルな静的ツールです。GitHub Pages に置いて使えます。</p>
-
   <div class="controls">
-    <button id="pickElementBtn">要素を選択してキャプチャ（html2canvas）</button>
     <button id="captureScreenBtn">画面キャプチャ（画面共有を利用）</button>
     <button id="exportJsonBtn">JSONとしてエクスポート</button>
     <button id="exportZipBtn">画像 + CSV を ZIP でエクスポート</button>
     <button id="clearAllBtn">すべてクリア</button>
   </div>
 
-  <hr />
-
-  <div>
-    <label>選択済みターゲット（キャプチャ対象の要素）:</label>
-    <div id="targetInfo">なし</div>
-    <small>※「要素を選択してキャプチャ」を押したら、記録したいゲーム画面の要素をクリックしてください（同一ページ内の要素をキャプチャ）。ゲームが別ドメインや別タブの場合は「画面キャプチャ」を使用してください。</small>
-  </div>
-
-  <hr />
-
   <div id="entries"></div>
 
-  <h2>ギャラリー</h2>
+  <h2>漢字</h2>
   <div id="gallery" class="gallery"></div>
 
-  <h2>ログ（デバッグ）</h2>
+  <h2>デバッグログ</h2>
   <textarea id="log" readonly></textarea>
 
 <script>
-// シンプルなクライアント保存実装
-const entries = []; // {id, dataUrl, reading, ts}
-let picking = false;
-let pickedElement = null;
+const entries = []; // {id, dataUrl, reading, memo, ts}
 const logEl = document.getElementById('log');
 function log(t){ logEl.value += new Date().toLocaleString() + ' - ' + t + '\n'; logEl.scrollTop = logEl.scrollHeight }
+
+function saveToLocal(){
+  localStorage.setItem('kanji_records', JSON.stringify(entries));
+}
+
+function loadFromLocal(){
+  const raw = localStorage.getItem('kanji_records');
+  if(raw){
+    try{
+      const arr = JSON.parse(raw);
+      entries.splice(0, entries.length, ...arr);
+      refreshUI();
+      log('前回のデータを復元しました');
+    }catch(e){ log('復元エラー: '+e); }
+  }
+}
 
 function refreshUI(){
   const gallery = document.getElementById('gallery');
@@ -65,99 +63,86 @@ function refreshUI(){
   entries.forEach((e,i)=>{
     const div = document.createElement('div'); div.className='entry';
     const img = document.createElement('img'); img.src=e.dataUrl; img.className='thumb';
+    img.title = e.reading;
+    img.onclick = ()=>{
+      const newReading = prompt('新しい読みを入力してください', e.reading);
+      if(newReading!==null){ e.reading = newReading; saveToLocal(); refreshUI(); }
+    };
     const info = document.createElement('div');
-    info.innerHTML = `<div><strong>読み:</strong> ${escapeHtml(e.reading)}</div><div><small>${new Date(e.ts).toLocaleString()}</small></div>`;
-    const del = document.createElement('button'); del.textContent='削除'; del.onclick=()=>{ entries.splice(i,1); refreshUI(); };
+    const readingInput = document.createElement('input');
+    readingInput.type='text'; readingInput.value=e.reading;
+    readingInput.onchange=()=>{ e.reading = readingInput.value; saveToLocal(); };
+    const memoInput = document.createElement('textarea');
+    memoInput.placeholder='メモ';
+    memoInput.value = e.memo||'';
+    memoInput.onchange=()=>{ e.memo = memoInput.value; saveToLocal(); };
+    info.appendChild(document.createTextNode('読み:'));
+    info.appendChild(readingInput);
+    info.appendChild(document.createElement('br'));
+    info.appendChild(document.createTextNode('メモ:'));
+    info.appendChild(memoInput);
+    info.appendChild(document.createElement('br'));
+    const time = document.createElement('div');
+    time.innerHTML = `<small>${new Date(e.ts).toLocaleString()}</small>`;
+    info.appendChild(time);
+    const del = document.createElement('button'); del.textContent='削除'; del.onclick=()=>{ entries.splice(i,1); saveToLocal(); refreshUI(); };
     const download = document.createElement('a'); download.textContent='画像保存'; download.href=e.dataUrl; download.download=`kanji_${i+1}.png`;
     info.appendChild(document.createElement('br'));
     info.appendChild(download);
     div.appendChild(img); div.appendChild(info); div.appendChild(del);
     entriesEl.appendChild(div);
 
-    const thumb = img.cloneNode(); thumb.title = e.reading;
+    const thumb = img.cloneNode();
     gallery.appendChild(thumb);
   });
+  saveToLocal();
 }
 
-function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" })[c]) }
-
-// html2canvas を使って要素キャプチャ
-document.getElementById('pickElementBtn').addEventListener('click', ()=>{
-  picking = true; log('要素選択モード開始: キャプチャしたい要素をクリックしてください');
-  document.body.style.cursor='crosshair';
-});
-
-window.addEventListener('click', function onClickPick(ev){
-  if(!picking) return;
-  ev.preventDefault(); ev.stopPropagation();
-  pickedElement = ev.target;
-  picking = false; document.body.style.cursor='';
-  document.getElementById('targetInfo').textContent = describeElement(pickedElement);
-  log('要素を選択しました: ' + describeElement(pickedElement));
-  // キャプチャして登録する
-  html2canvas(pickedElement).then(canvas => {
-    const dataUrl = canvas.toDataURL('image/png');
-    promptAndSave(dataUrl);
-  }).catch(err=>{ log('html2canvas error: '+err); });
-}, true);
-
-function describeElement(el){
-  if(!el) return 'なし';
-  const tag = el.tagName.toLowerCase();
-  const id = el.id ? '#'+el.id : '';
-  const cls = el.className ? '.'+String(el.className).split(/\s+/)[0] : '';
-  return `${tag}${id}${cls}`;
-}
-
-// 画面キャプチャ（getDisplayMedia）
+// 画面キャプチャ
 document.getElementById('captureScreenBtn').addEventListener('click', async ()=>{
   try{
     const stream = await navigator.mediaDevices.getDisplayMedia({video:true});
     const track = stream.getVideoTracks()[0];
     const imageCapture = new ImageCapture(track);
     const frame = await imageCapture.grabFrame();
-    // canvas に描画
     const canvas = document.createElement('canvas');
     canvas.width = frame.width; canvas.height = frame.height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(frame,0,0);
     const dataUrl = canvas.toDataURL('image/png');
-    // stop stream
     track.stop();
     promptAndSave(dataUrl);
     log('画面キャプチャ完了');
   }catch(err){ log('画面キャプチャに失敗: '+err); }
 });
 
-// 読み入力を促して保存
 function promptAndSave(dataUrl){
-  const reading = window.prompt('この画像の読み（かな）を入力してください（例: とうきょう）');
-  const entry = { id: Date.now(), dataUrl, reading: reading || '', ts: Date.now() };
+  const reading = window.prompt('...');
+  const entry = { id: Date.now(), dataUrl, reading: reading || '', memo:'', ts: Date.now() };
   entries.push(entry);
   refreshUI();
   log('エントリ保存: ' + entry.reading);
 }
 
-// エクスポート JSON
+// JSON エクスポート
 document.getElementById('exportJsonBtn').addEventListener('click', ()=>{
-  const minimal = entries.map((e,i)=>({index:i+1,reading:e.reading,ts:e.ts,filename:`kanji_${i+1}.png`}));
+  const minimal = entries.map((e,i)=>({index:i+1,reading:e.reading,memo:e.memo,ts:e.ts,filename:`kanji_${i+1}.png`}));
   const blob = new Blob([JSON.stringify({meta:minimal},null,2)],{type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kanji_records.json'; a.click();
   log('JSON エクスポート');
 });
 
-// エクスポート ZIP (画像 + CSV)
+// ZIP エクスポート
 document.getElementById('exportZipBtn').addEventListener('click', async ()=>{
   if(entries.length===0){ alert('エントリがありません'); return }
   const zip = new JSZip();
-  const csvRows = [['index','filename','reading','timestamp']];
+  const csvRows = [['index','filename','reading','memo','timestamp']];
   for(let i=0;i<entries.length;i++){
     const e = entries[i];
     const filename = `kanji_${i+1}.png`;
-    // dataURL -> binary
     const blob = dataURLtoBlob(e.dataUrl);
     zip.file(filename, blob);
-    csvRows.push([i+1,filename,`"${e.reading.replace(/"/g,'""') }"`, new Date(e.ts).toISOString()]);
+    csvRows.push([i+1,filename,`"${e.reading.replace(/"/g,'""') }"`,`"${(e.memo||'').replace(/"/g,'""') }"`, new Date(e.ts).toISOString()]);
   }
   const csv = csvRows.map(r=>r.join(',')).join('\n');
   zip.file('kanji_records.csv', csv);
@@ -173,15 +158,12 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], {type:mime});
 }
 
-// クリア
 document.getElementById('clearAllBtn').addEventListener('click', ()=>{
   if(!confirm('全データを本当に削除しますか？')) return;
   entries.length=0; refreshUI(); log('すべてクリア');
 });
 
-// ページ読み込みで保存されている IndexedDB などを復元する機能は簡略化のため省略しています。
-// 必要なら localStorage や IndexedDB に保存して自動復元するよう拡張可能です。
-
+loadFromLocal();
 log('ツール読み込み完了');
 </script>
 </body>
