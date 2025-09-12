@@ -1,1 +1,1 @@
-# tera-corp.github.io
+# 24xxl.github.io
