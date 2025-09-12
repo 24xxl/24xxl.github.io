@@ -19,18 +19,18 @@
   </style>
 </head>
 <body>
-  <h1>漢字ゲーム スクリーンショット記録ツール</h1>
-  <p>画面キャプチャを行い、読みやメモを入力・保存・エクスポートするツールです。GitHub Pages に置いて使えます。</p>
+  <h1>記録用ツール</h1>
+  <p>とりあえず100件いったらページ化。</p>
   <div class="controls">
-    <button id="captureScreenBtn">画面キャプチャ（画面共有を利用）</button>
-    <button id="exportJsonBtn">JSONとしてエクスポート</button>
+    <button id="captureScreenBtn">画面キャプチャ</button>
+    <button id="exportJsonBtn">JSONエクスポート</button>
     <button id="exportZipBtn">画像 + CSV を ZIP でエクスポート</button>
     <button id="clearAllBtn">すべてクリア</button>
   </div>
 
   <div id="entries"></div>
 
-  <h2>漢字</h2>
+  <h2>記録</h2>
   <div id="gallery" class="gallery"></div>
 
   <h2>デバッグログ</h2>
@@ -67,7 +67,7 @@ function refreshUI(){
     const img = document.createElement('img'); img.src=e.dataUrl; img.className='thumb';
     img.title = e.reading;
     img.onclick = ()=>{
-      const newReading = prompt('新しい読みを入力してください', e.reading);
+      const newReading = prompt('...', e.reading);
       if(newReading!==null){ e.reading = newReading; saveToLocal(); refreshUI(); }
     };
     const info = document.createElement('div');
