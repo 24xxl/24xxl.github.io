@@ -20,7 +20,7 @@
 </head>
 <body>
   <h1>記録用ツール</h1>
-  <p>とりあえず100件いったらページ化。</p>
+  <p id="recordCount">記録数: 0</p>
   <div class="controls">
     <button id="captureScreenBtn">画面キャプチャ</button>
     <button id="exportJsonBtn">JSONエクスポート</button>
@@ -160,6 +160,14 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], {type:mime});
 }
 
+function updateRecordCount() {
+  const data = JSON.parse(localStorage.getItem("records")) || [];
+  document.getElementById("recordCount").textContent = "記録数: " + data.length;
+}
+
+// ページを開いたときに実行
+window.addEventListener("load", updateRecordCount);
+  
 document.getElementById('clearAllBtn').addEventListener('click', ()=>{
   if(!confirm('全データを本当に削除しますか？')) return;
   entries.length=0; refreshUI(); log('すべてクリア');
@@ -167,6 +175,9 @@ document.getElementById('clearAllBtn').addEventListener('click', ()=>{
 
 loadFromLocal();
 log('ツール読み込み完了');
+  
+updateRecordCount();
+
 </script>
 </body>
 </html>
