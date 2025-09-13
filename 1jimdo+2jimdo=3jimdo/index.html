@@ -11,19 +11,35 @@ button{margin:4px}
 .thumb-container{border:1px solid #ddd;padding:4px;width:150px;display:flex;flex-direction:column;align-items:center;cursor:pointer}
 .thumb-container img{width:100%;height:auto}
 .thumb-container div{margin-top:2px;word-break:break-word;text-align:center}
+textarea#log{width:100%;height:150px;margin-top:8px}
 </style>
 </head>
 <body>
 
 <h1>記録</h1>
 <p id="recordCount">記録数: 0</p>
+<div>
 <button id="captureBtn">画面キャプチャ</button>
+<button id="stopStreamBtn">画面共有停止</button>
 <button id="clearBtn">全削除</button>
+</div>
 
 <div id="gallery" class="gallery"></div>
 
+<h2>キャプチャログ</h2>
+<textarea id="log" readonly></textarea>
+
 <script>
 const entries = []; // {id, dataUrl, reading, memo, ts}
+let displayStream = null; // 画面共有ストリーム
+
+// ログ出力
+const logEl = document.getElementById('log');
+function log(msg){
+    const time = new Date().toLocaleTimeString();
+    logEl.value += `[${time}] ${msg}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
 
 // localStorage 保存
 function saveToLocal(){
@@ -39,7 +55,8 @@ function loadFromLocal(){
             const arr = JSON.parse(raw);
             entries.splice(0, entries.length, ...arr);
             refreshGallery();
-        }catch(e){ console.error('復元エラー:', e); }
+            log('前回のデータを復元しました');
+        }catch(e){ log('復元エラー: ' + e); }
     }
 }
 
@@ -51,7 +68,7 @@ function updateRecordCount(){
 function refreshGallery(){
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
-    entries.forEach((e,i)=>{
+    entries.forEach((e)=>{
         const div = document.createElement('div');
         div.className = 'thumb-container';
 
@@ -75,17 +92,21 @@ function refreshGallery(){
             e.memo = newMemo;
             saveToLocal();
             refreshGallery();
+            log('エントリ編集: ' + e.reading);
         });
 
         gallery.appendChild(div);
     });
 }
 
-// 他タブ/他ウィンドウのスクリーンショット
+// 画面キャプチャ
 document.getElementById('captureBtn').addEventListener('click', async ()=>{
     try{
-        const stream = await navigator.mediaDevices.getDisplayMedia({video:true});
-        const track = stream.getVideoTracks()[0];
+        if(!displayStream){
+            displayStream = await navigator.mediaDevices.getDisplayMedia({video:true});
+            log('画面共有ストリーム取得成功');
+        }
+        const track = displayStream.getVideoTracks()[0];
         const imageCapture = new ImageCapture(track);
         const bitmap = await imageCapture.grabFrame();
 
@@ -96,16 +117,25 @@ document.getElementById('captureBtn').addEventListener('click', async ()=>{
         ctx.drawImage(bitmap,0,0);
         const dataUrl = canvas.toDataURL('image/png');
 
-        track.stop(); // ストリーム停止
-
-        // 画像のみ保存
         entries.push({id: Date.now(), dataUrl, reading:"", memo:"", ts: Date.now()});
         saveToLocal();
         refreshGallery();
-
+        log('キャプチャ成功 (全' + entries.length + '件)');
     }catch(e){
-        alert('画面キャプチャに失敗しました');
+        log('キャプチャ失敗: ' + e);
         console.error(e);
+        alert('画面キャプチャに失敗しました');
+    }
+});
+
+// 画面共有停止
+document.getElementById('stopStreamBtn').addEventListener('click', ()=>{
+    if(displayStream){
+        displayStream.getTracks().forEach(t=>t.stop());
+        displayStream = null;
+        log('画面共有ストリーム停止');
+    } else {
+        log('画面共有ストリームは存在しません');
     }
 });
 
@@ -115,6 +145,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
         entries.length = 0;
         saveToLocal();
         refreshGallery();
+        log('全データ削除');
     }
 });
 
