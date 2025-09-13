@@ -4,13 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>漢字記録ツール</title>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;margin:16px}
 button{margin:4px}
 .gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.thumb-container{border:1px solid #ddd;padding:4px;width:150px;display:flex;flex-direction:column;align-items:center}
+.thumb-container{border:1px solid #ddd;padding:4px;width:150px;display:flex;flex-direction:column;align-items:center;cursor:pointer}
 .thumb-container img{width:100%;height:auto}
+.thumb-container div{margin-top:2px;word-break:break-word;text-align:center}
 </style>
 </head>
 <body>
@@ -25,11 +25,13 @@ button{margin:4px}
 <script>
 const entries = []; // {id, dataUrl, reading, memo, ts}
 
+// localStorage 保存
 function saveToLocal(){
     localStorage.setItem('kanji_records', JSON.stringify(entries));
     updateRecordCount();
 }
 
+// localStorage 読み込み
 function loadFromLocal(){
     const raw = localStorage.getItem('kanji_records');
     if(raw){
@@ -45,6 +47,7 @@ function updateRecordCount(){
     document.getElementById('recordCount').textContent = "記録数: " + entries.length;
 }
 
+// ギャラリー更新
 function refreshGallery(){
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
@@ -57,48 +60,53 @@ function refreshGallery(){
         div.appendChild(img);
 
         const reading = document.createElement('div');
-        reading.textContent = "読み: " + e.reading;
+        reading.textContent = "読み: " + (e.reading||"");
         div.appendChild(reading);
 
         const memo = document.createElement('div');
-        memo.textContent = "メモ: " + e.memo;
+        memo.textContent = "メモ: " + (e.memo||"");
         div.appendChild(memo);
+
+        // クリックで編集
+        div.addEventListener('click', ()=>{
+            const newReading = prompt('読みを編集', e.reading||'') || e.reading;
+            const newMemo = prompt('メモを編集', e.memo||'') || e.memo;
+            e.reading = newReading;
+            e.memo = newMemo;
+            saveToLocal();
+            refreshGallery();
+        });
 
         gallery.appendChild(div);
     });
 }
 
-// 画面キャプチャと入力
+// 他タブ/他ウィンドウのスクリーンショット
 document.getElementById('captureBtn').addEventListener('click', async ()=>{
-try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const track = stream.getVideoTracks()[0];
-    const imageCapture = new ImageCapture(track);
-    const bitmap = await imageCapture.grabFrame();
+    try{
+        const stream = await navigator.mediaDevices.getDisplayMedia({video:true});
+        const track = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(track);
+        const bitmap = await imageCapture.grabFrame();
 
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(bitmap, 0, 0);
-    const dataUrl = canvas.toDataURL('image/png');
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap,0,0);
+        const dataUrl = canvas.toDataURL('image/png');
 
-    track.stop(); // 画面共有ストリームを停止
+        track.stop(); // ストリーム停止
 
-    // ここで読みとメモを入力して entries に保存
-    const reading = prompt("読みを入力してください");
-    if (reading === null) return;
-    const memo = prompt("メモを入力してください") || '';
+        // 画像のみ保存
+        entries.push({id: Date.now(), dataUrl, reading:"", memo:"", ts: Date.now()});
+        saveToLocal();
+        refreshGallery();
 
-    entries.push({ id: Date.now(), dataUrl, reading, memo, ts: Date.now() });
-    saveToLocal();
-    refreshGallery();
-
-} catch (e) {
-    alert('画面キャプチャに失敗しました');
-    console.error(e);
-}
-
+    }catch(e){
+        alert('画面キャプチャに失敗しました');
+        console.error(e);
+    }
 });
 
 // 全削除
