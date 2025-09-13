@@ -43,8 +43,13 @@ function log(msg){
 
 // localStorage 保存
 function saveToLocal(){
-    localStorage.setItem('kanji_records', JSON.stringify(entries));
-    updateRecordCount();
+    try{
+        localStorage.setItem('kanji_records', JSON.stringify(entries));
+        updateRecordCount();
+    }catch(e){
+        log('保存失敗: ' + e);
+        alert('保存できませんでした。容量が大きすぎる可能性があります。古いデータを削除してください。');
+    }
 }
 
 // localStorage 読み込み
@@ -110,11 +115,14 @@ document.getElementById('captureBtn').addEventListener('click', async ()=>{
         const imageCapture = new ImageCapture(track);
         const bitmap = await imageCapture.grabFrame();
 
+        // canvas に縮小して描画
+        const scale = 0.5; // 縮小率
         const canvas = document.createElement('canvas');
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
+        canvas.width = bitmap.width * scale;
+        canvas.height = bitmap.height * scale;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap,0,0);
+        ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+
         const dataUrl = canvas.toDataURL('image/png');
 
         entries.push({id: Date.now(), dataUrl, reading:"", memo:"", ts: Date.now()});
