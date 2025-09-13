@@ -21,7 +21,7 @@ textarea#log{width:100%;height:150px;margin-top:8px}
 <div>
 <button id="captureBtn">画面キャプチャ</button>
 <button id="stopStreamBtn">画面共有停止</button>
-<button id="clearBtn">全削除</button>
+<button id="clearBtn">削除</button>
 </div>
 
 <div id="gallery" class="gallery"></div>
@@ -30,73 +30,94 @@ textarea#log{width:100%;height:150px;margin-top:8px}
 <textarea id="log" readonly></textarea>
 
 <script>
-const entries = []; // {id, dataUrl, reading, memo, ts}
 let displayStream = null; // 画面共有ストリーム
+const logEl = document.getElementById('log');
+
+// IndexedDB 操作
+function openDB(){
+    return new Promise((resolve,reject)=>{
+        const req = indexedDB.open("kanjiDB",1);
+        req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if(!db.objectStoreNames.contains("entries")){
+                db.createObjectStore("entries",{keyPath:"id"});
+            }
+        };
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = e => reject(e);
+    });
+}
+
+async function saveEntry(entry){
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+        const tx = db.transaction("entries","readwrite");
+        const store = tx.objectStore("entries");
+        const req = store.put(entry);
+        req.onsuccess = ()=>resolve();
+        req.onerror = e=>reject(e);
+    });
+}
+
+async function getAllEntries(){
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+        const tx = db.transaction("entries","readonly");
+        const store = tx.objectStore("entries");
+        const req = store.getAll();
+        req.onsuccess = e=>resolve(e.target.result);
+        req.onerror = e=>reject(e);
+    });
+}
+
+async function clearAllEntries(){
+    const db = await openDB();
+    return new Promise((resolve,reject)=>{
+        const tx = db.transaction("entries","readwrite");
+        const store = tx.objectStore("entries");
+        const req = store.clear();
+        req.onsuccess = ()=>resolve();
+        req.onerror = e=>reject(e);
+    });
+}
 
 // ログ出力
-const logEl = document.getElementById('log');
 function log(msg){
     const time = new Date().toLocaleTimeString();
     logEl.value += `[${time}] ${msg}\n`;
     logEl.scrollTop = logEl.scrollHeight;
 }
 
-// localStorage 保存
-function saveToLocal(){
-    try{
-        localStorage.setItem('kanji_records', JSON.stringify(entries));
-        updateRecordCount();
-    }catch(e){
-        log('保存失敗: ' + e);
-        alert('保存できませんでした。容量が大きすぎる可能性があります。古いデータを削除してください。');
-    }
-}
-
-// localStorage 読み込み
-function loadFromLocal(){
-    const raw = localStorage.getItem('kanji_records');
-    if(raw){
-        try{
-            const arr = JSON.parse(raw);
-            entries.splice(0, entries.length, ...arr);
-            refreshGallery();
-            log('前回のデータを復元しました');
-        }catch(e){ log('復元エラー: ' + e); }
-    }
-}
-
-function updateRecordCount(){
-    document.getElementById('recordCount').textContent = "記録数: " + entries.length;
-}
-
 // ギャラリー更新
-function refreshGallery(){
+async function refreshGallery(){
     const gallery = document.getElementById('gallery');
-    gallery.innerHTML = '';
-    entries.forEach((e)=>{
+    gallery.innerHTML='';
+    const entries = await getAllEntries();
+    document.getElementById('recordCount').textContent = "記録数: " + entries.length;
+
+    entries.forEach(e=>{
         const div = document.createElement('div');
-        div.className = 'thumb-container';
+        div.className='thumb-container';
 
         const img = document.createElement('img');
-        img.src = e.dataUrl;
+        img.src = URL.createObjectURL(e.blob);
         div.appendChild(img);
 
-        const reading = document.createElement('div');
-        reading.textContent = "読み: " + (e.reading||"");
-        div.appendChild(reading);
+        const readingDiv = document.createElement('div');
+        readingDiv.textContent = "読み: " + (e.reading||"");
+        div.appendChild(readingDiv);
 
-        const memo = document.createElement('div');
-        memo.textContent = "メモ: " + (e.memo||"");
-        div.appendChild(memo);
+        const memoDiv = document.createElement('div');
+        memoDiv.textContent = "メモ: " + (e.memo||"");
+        div.appendChild(memoDiv);
 
-        // クリックで編集
-        div.addEventListener('click', ()=>{
-            const newReading = prompt('読みを編集', e.reading||'') || e.reading;
-            const newMemo = prompt('メモを編集', e.memo||'') || e.memo;
+        div.addEventListener('click', async ()=>{
+            const newReading = prompt('読みを編集', e.reading||'')||e.reading;
+            const newMemo = prompt('メモを編集', e.memo||'')||e.memo;
             e.reading = newReading;
             e.memo = newMemo;
-            saveToLocal();
-            refreshGallery();
+            await saveEntry(e);
+            await refreshGallery();
             log('エントリ編集: ' + e.reading);
         });
 
@@ -115,22 +136,21 @@ document.getElementById('captureBtn').addEventListener('click', async ()=>{
         const imageCapture = new ImageCapture(track);
         const bitmap = await imageCapture.grabFrame();
 
-        // canvas に縮小して描画
-        const scale = 0.5; // 縮小率
+        const scale = 0.5;
         const canvas = document.createElement('canvas');
         canvas.width = bitmap.width * scale;
         canvas.height = bitmap.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
 
-        const dataUrl = canvas.toDataURL('image/png');
-
-        entries.push({id: Date.now(), dataUrl, reading:"", memo:"", ts: Date.now()});
-        saveToLocal();
-        refreshGallery();
-        log('キャプチャ成功 (全' + entries.length + '件)');
+        canvas.toBlob(async blob=>{
+            const entry = {id: Date.now(), blob, reading:"", memo:"", ts: Date.now()};
+            await saveEntry(entry);
+            await refreshGallery();
+            log('キャプチャ成功');
+        },'image/png');
     }catch(e){
-        log('キャプチャ失敗: ' + e);
+        log('キャプチャ失敗: '+e);
         console.error(e);
         alert('画面キャプチャに失敗しました');
     }
@@ -142,24 +162,22 @@ document.getElementById('stopStreamBtn').addEventListener('click', ()=>{
         displayStream.getTracks().forEach(t=>t.stop());
         displayStream = null;
         log('画面共有ストリーム停止');
-    } else {
+    }else{
         log('画面共有ストリームは存在しません');
     }
 });
 
 // 全削除
-document.getElementById('clearBtn').addEventListener('click', ()=>{
-    if(confirm('全データを本当に削除しますか？')){
-        entries.length = 0;
-        saveToLocal();
-        refreshGallery();
-        log('全データ削除');
+document.getElementById('clearBtn').addEventListener('click', async ()=>{
+    if(confirm('データを本当に削除しますか？')){
+        await clearAllEntries();
+        await refreshGallery();
+        log('データ削除');
     }
 });
 
 // 初期化
-loadFromLocal();
-updateRecordCount();
+refreshGallery();
 
 </script>
 </body>
