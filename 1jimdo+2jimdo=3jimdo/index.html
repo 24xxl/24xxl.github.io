@@ -3,19 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Site not found · GitHub Pages</title>
+  <title>記録用ツール</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo, sans-serif;margin:16px}
     button{margin:4px}
     .controls{display:flex;gap:8px;flex-wrap:wrap}
-    .thumb{height:80px;border:1px solid #ddd;margin:4px;cursor:pointer}
+    .thumb{height:80px;border:1px solid #ddd;margin:4px}
     .entry{display:flex;align-items:flex-start;gap:8px;padding:6px;border:1px solid #eee;margin-bottom:6px}
     .gallery{display:flex;flex-wrap:wrap}
     label{font-weight:600}
     input[type=text]{padding:6px;min-width:200px}
     textarea{width:100%;height:120px}
+    #inputFormContainer{display:none; position:fixed; bottom:0; left:0; right:0; background:#f9f9f9; border-top:1px solid #ccc; padding:10px;}
+    .record-card{border:1px solid #ddd; padding:6px; margin:6px; display:inline-block; width:180px; vertical-align:top}
+    .record-card img{max-width:100%; height:auto; display:block}
+    .record-meta{margin-top:6px; font-size:13px}
+    #recordCount{font-weight:bold; margin-top:8px}
+    #log{width:100%;height:120px}
   </style>
 </head>
 <body>
@@ -33,98 +39,168 @@
   <h2>記録</h2>
   <div id="gallery" class="gallery"></div>
 
+  <div id="inputFormContainer">
+    <label>読み: <input type="text" id="yomiInput"></label>
+    <label style="margin-left:10px">メモ: <input type="text" id="memoInput" style="width:300px"></label>
+    <button id="saveRecord">保存</button>
+  </div>
+
   <h2>デバッグログ</h2>
   <textarea id="log" readonly></textarea>
 
 <script>
-const entries = []; // {id, dataUrl, reading, memo, ts}
+// データ構造: entries = [{id, dataUrl, reading, memo, ts}]
+let entries = [];
+let tempImage = null; // スクリーンショットを一時保持
+const STORAGE_KEY = 'kanji_records';
 const logEl = document.getElementById('log');
-function log(t){ logEl.value += new Date().toLocaleString() + ' - ' + t + '\n'; logEl.scrollTop = logEl.scrollHeight }
+function log(t){ logEl.value += new Date().toLocaleString() + ' - ' + t + '
+'; logEl.scrollTop = logEl.scrollHeight }
 
+// localStorage に保存（失敗時は false を返す）
 function saveToLocal(){
-  localStorage.setItem('kanji_records', JSON.stringify(entries));
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    return true;
+  }catch(e){
+    log('localStorage 保存エラー: ' + e);
+    return false;
+  }
 }
 
+// 読み込み
 function loadFromLocal(){
-  const raw = localStorage.getItem('kanji_records');
+  const raw = localStorage.getItem(STORAGE_KEY);
   if(raw){
     try{
-      const arr = JSON.parse(raw);
-      entries.splice(0, entries.length, ...arr);
+      entries = JSON.parse(raw) || [];
       refreshUI();
       log('前回のデータを復元しました');
     }catch(e){ log('復元エラー: '+e); }
   }
+  updateRecordCount();
 }
 
+// UI 再描画（localStorageへの保存はここでは行わない）
 function refreshUI(){
   const gallery = document.getElementById('gallery');
-  gallery.innerHTML='';
+  gallery.innerHTML = '';
   const entriesEl = document.getElementById('entries');
-  entriesEl.innerHTML='';
+  entriesEl.innerHTML = '';
+
   entries.forEach((e,i)=>{
+    // 詳細リスト（左）
     const div = document.createElement('div'); div.className='entry';
     const img = document.createElement('img'); img.src=e.dataUrl; img.className='thumb';
-    img.title = e.reading;
-    img.onclick = ()=>{
-      const newReading = prompt('...', e.reading);
-      if(newReading!==null){ e.reading = newReading; saveToLocal(); refreshUI(); }
-    };
     const info = document.createElement('div');
-    const readingInput = document.createElement('input');
-    readingInput.type='text'; readingInput.value=e.reading;
-    readingInput.onchange=()=>{ e.reading = readingInput.value; saveToLocal(); };
-    const memoInput = document.createElement('textarea');
-    memoInput.placeholder='メモ';
-    memoInput.value = e.memo||'';
-    memoInput.onchange=()=>{ e.memo = memoInput.value; saveToLocal(); };
-    info.appendChild(document.createTextNode('読み:'));
-    info.appendChild(readingInput);
-    info.appendChild(document.createElement('br'));
-    info.appendChild(document.createTextNode('メモ:'));
-    info.appendChild(memoInput);
-    info.appendChild(document.createElement('br'));
-    const time = document.createElement('div');
-    time.innerHTML = `<small>${new Date(e.ts).toLocaleString()}</small>`;
-    info.appendChild(time);
-    const del = document.createElement('button'); del.textContent='削除'; del.onclick=()=>{ entries.splice(i,1); saveToLocal(); refreshUI(); };
+    const readingP = document.createElement('p'); readingP.textContent = '読み: ' + (e.reading || '');
+    const memoP = document.createElement('p'); memoP.textContent = 'メモ: ' + (e.memo || '');
+    const time = document.createElement('div'); time.innerHTML = `<small>${new Date(e.ts).toLocaleString()}</small>`;
+    const del = document.createElement('button'); del.textContent='削除'; del.onclick = ()=>{ removeEntry(i); };
     const download = document.createElement('a'); download.textContent='画像保存'; download.href=e.dataUrl; download.download=`kanji_${i+1}.png`;
-    info.appendChild(document.createElement('br'));
-    info.appendChild(download);
+    info.appendChild(readingP); info.appendChild(memoP); info.appendChild(time); info.appendChild(document.createElement('br')); info.appendChild(download);
     div.appendChild(img); div.appendChild(info); div.appendChild(del);
     entriesEl.appendChild(div);
 
-    const thumb = img.cloneNode();
-    gallery.appendChild(thumb);
+    // ギャラリー（右）
+    const card = document.createElement('div'); card.className='record-card';
+    const cimg = document.createElement('img'); cimg.src = e.dataUrl;
+    const meta = document.createElement('div'); meta.className='record-meta';
+    const mReading = document.createElement('div'); mReading.textContent = '読み: ' + (e.reading||'');
+    const mMemo = document.createElement('div'); mMemo.textContent = 'メモ: ' + (e.memo||'');
+    const mTime = document.createElement('div'); mTime.innerHTML = `<small>${new Date(e.ts).toLocaleString()}</small>`;
+    card.appendChild(cimg); meta.appendChild(mReading); meta.appendChild(mMemo); meta.appendChild(mTime); card.appendChild(meta);
+    gallery.appendChild(card);
   });
-  saveToLocal();
 }
 
-// 画面キャプチャ
+function removeEntry(index){
+  const removed = entries.splice(index,1)[0];
+  if(!saveToLocal()){
+    // 失敗したら元に戻す
+    entries.splice(index,0,removed);
+    alert('削除を保存できませんでした。保存容量を確認してください。');
+    log('削除の保存に失敗したため元に戻しました');
+    return;
+  }
+  refreshUI();
+  updateRecordCount();
+}
+
+// 画面キャプチャ（ImageCapture が使えない場合は video 要素経由で取得）
+async function captureScreenToDataUrl(){
+  let stream = null;
+  try{
+    stream = await navigator.mediaDevices.getDisplayMedia({video:true});
+    const track = stream.getVideoTracks()[0];
+    try{
+      // 可能なら ImageCapture を使う
+      if(window.ImageCapture){
+        const imageCapture = new ImageCapture(track);
+        const frame = await imageCapture.grabFrame();
+        const canvas = document.createElement('canvas'); canvas.width = frame.width; canvas.height = frame.height;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(frame,0,0);
+        track.stop();
+        return canvas.toDataURL('image/png');
+      }
+      // ImageCapture が無ければ video 経由
+      const video = document.createElement('video'); video.srcObject = stream; video.muted=true; video.playsInline=true;
+      await video.play();
+      const canvas = document.createElement('canvas'); canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(video,0,0);
+      // stop tracks
+      stream.getTracks().forEach(t=>t.stop());
+      return canvas.toDataURL('image/png');
+    }catch(e){
+      // 何か失敗したら必ずトラックを停止
+      stream.getTracks().forEach(t=>t.stop());
+      throw e;
+    }
+  }catch(e){
+    if(stream && stream.getTracks) stream.getTracks().forEach(t=>t.stop());
+    throw e;
+  }
+}
+
+// キャプチャボタン
 document.getElementById('captureScreenBtn').addEventListener('click', async ()=>{
   try{
-    const stream = await navigator.mediaDevices.getDisplayMedia({video:true});
-    const track = stream.getVideoTracks()[0];
-    const imageCapture = new ImageCapture(track);
-    const frame = await imageCapture.grabFrame();
-    const canvas = document.createElement('canvas');
-    canvas.width = frame.width; canvas.height = frame.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(frame,0,0);
-    const dataUrl = canvas.toDataURL('image/png');
-    track.stop();
-    promptAndSave(dataUrl);
-    log('画面キャプチャ完了');
-  }catch(err){ log('画面キャプチャに失敗: '+err); }
+    const dataUrl = await captureScreenToDataUrl();
+    tempImage = dataUrl;
+    // フォームを表示して入力を促す
+    document.getElementById('inputFormContainer').style.display = 'block';
+    document.getElementById('yomiInput').value = '';
+    document.getElementById('memoInput').value = '';
+    log('スクリーンショットを取得しました（保存待ち）');
+  }catch(err){
+    log('画面キャプチャに失敗: ' + err);
+    alert('画面キャプチャに失敗しました。ブラウザの画面共有許可や互換性を確認してください。');
+  }
 });
 
-function promptAndSave(dataUrl){
-  const reading = window.prompt('...');
-  const entry = { id: Date.now(), dataUrl, reading: reading || '', memo:'', ts: Date.now() };
+// 保存ボタン
+document.getElementById('saveRecord').addEventListener('click', ()=>{
+  if(!tempImage){ alert('まずスクリーンショットを取得してください'); return; }
+  const y = document.getElementById('yomiInput').value.trim();
+  const m = document.getElementById('memoInput').value.trim();
+  const entry = { id: Date.now(), dataUrl: tempImage, reading: y, memo: m, ts: Date.now() };
+
   entries.push(entry);
+  if(!saveToLocal()){
+    // 保存に失敗したら追加を取り消す
+    entries.pop();
+    log('エントリ保存に失敗しました（容量オーバー等）');
+    alert('保存に失敗しました。ローカルストレージの容量を超えている可能性があります。エクスポートしてから不要なデータを削除してください。');
+    return;
+  }
   refreshUI();
-  log('エントリ保存: ' + entry.reading);
-}
+  updateRecordCount();
+
+  // 一時画像クリアしてフォームを非表示に戻す
+  tempImage = null;
+  document.getElementById('inputFormContainer').style.display = 'none';
+  log('エントリを保存しました: ' + entry.reading);
+});
 
 // JSON エクスポート
 document.getElementById('exportJsonBtn').addEventListener('click', ()=>{
@@ -146,7 +222,8 @@ document.getElementById('exportZipBtn').addEventListener('click', async ()=>{
     zip.file(filename, blob);
     csvRows.push([i+1,filename,`"${e.reading.replace(/"/g,'""') }"`,`"${(e.memo||'').replace(/"/g,'""') }"`, new Date(e.ts).toISOString()]);
   }
-  const csv = csvRows.map(r=>r.join(',')).join('\n');
+  const csv = csvRows.map(r=>r.join(',')).join('
+');
   zip.file('kanji_records.csv', csv);
   const content = await zip.generateAsync({type:'blob'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(content); a.download = 'kanji_records.zip'; a.click();
@@ -160,24 +237,24 @@ function dataURLtoBlob(dataurl) {
   return new Blob([u8arr], {type:mime});
 }
 
-function updateRecordCount() {
-  const data = JSON.parse(localStorage.getItem("records")) || [];
-  document.getElementById("recordCount").textContent = "記録数: " + data.length;
+function updateRecordCount(){
+  document.getElementById('recordCount').textContent = '記録数: ' + entries.length + ' 件';
 }
 
-// ページを開いたときに実行
-window.addEventListener("load", updateRecordCount);
-  
+// すべてクリア
 document.getElementById('clearAllBtn').addEventListener('click', ()=>{
   if(!confirm('全データを本当に削除しますか？')) return;
-  entries.length=0; refreshUI(); log('すべてクリア');
+  entries = [];
+  saveToLocal();
+  refreshUI();
+  updateRecordCount();
+  log('すべてクリア');
 });
 
+// 初期化
 loadFromLocal();
 log('ツール読み込み完了');
-  
 updateRecordCount();
-
 </script>
 </body>
 </html>
