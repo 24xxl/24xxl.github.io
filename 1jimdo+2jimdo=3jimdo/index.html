@@ -70,20 +70,35 @@ function refreshGallery(){
 
 // 画面キャプチャと入力
 document.getElementById('captureBtn').addEventListener('click', async ()=>{
-    try{
-        const element = document.body; // ページ全体をキャプチャ
-        const canvas = await html2canvas(element);
-        const dataUrl = canvas.toDataURL('image/png');
+try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const track = stream.getVideoTracks()[0];
+    const imageCapture = new ImageCapture(track);
+    const bitmap = await imageCapture.grabFrame();
 
-        const reading = prompt("読みを入力してください");
-        if(reading === null) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    const dataUrl = canvas.toDataURL('image/png');
 
-        const memo = prompt("メモを入力してください") || '';
+    track.stop(); // 画面共有ストリームを停止
 
-        entries.push({id: Date.now(), dataUrl, reading, memo, ts: Date.now()});
-        saveToLocal();
-        refreshGallery();
-    }catch(e){ alert('スクリーンショットに失敗しました'); console.error(e); }
+    // ここで読みとメモを入力して entries に保存
+    const reading = prompt("読みを入力してください");
+    if (reading === null) return;
+    const memo = prompt("メモを入力してください") || '';
+
+    entries.push({ id: Date.now(), dataUrl, reading, memo, ts: Date.now() });
+    saveToLocal();
+    refreshGallery();
+
+} catch (e) {
+    alert('画面キャプチャに失敗しました');
+    console.error(e);
+}
+
 });
 
 // 全削除
