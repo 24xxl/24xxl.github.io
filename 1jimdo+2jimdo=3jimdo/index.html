@@ -22,6 +22,7 @@ textarea#log{width:100%;height:150px;margin-top:8px}
 <button id="captureBtn">画面キャプチャ</button>
 <button id="stopStreamBtn">画面共有停止</button>
 <button id="clearBtn">削除</button>
+<button id="exportBtn">HTMLエクスポート</button>
 </div>
 
 <div id="gallery" class="gallery"></div>
@@ -175,6 +176,85 @@ document.getElementById('clearBtn').addEventListener('click', async ()=>{
         log('データ削除');
     }
 });
+// Blob -> DataURL（FileReader を Promise 化）
+function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('blob->dataURL 変換失敗'));
+        reader.readAsDataURL(blob);
+    });
+}
+
+// IndexedDB の全件を HTML にまとめてダウンロードする
+async function exportToHTML() {
+    try {
+        const entries = await getAllEntries();
+        if (!entries || entries.length === 0) {
+            alert('エクスポートするデータがありません。');
+            return;
+        }
+
+        log('エクスポート開始: ' + entries.length + ' 件');
+
+        let htmlContent = `<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>漢字記録（エクスポート）</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;padding:16px}
+.entry{margin-bottom:20px;border-bottom:1px solid #ddd;padding-bottom:12px}
+img{max-width:600px;height:auto;display:block;margin-bottom:6px}
+.reading{font-weight:700}
+.memo{color:#555}
+</style>
+</head>
+<body>
+<h1>漢字記録（エクスポート）</h1>
+`;
+
+        // 逐次変換（大量画像だと時間がかかります）
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            log(`変換中 ${i+1}/${entries.length} ...`);
+            // e.blob を dataURL に変換
+            const dataURL = await blobToDataURL(e.blob);
+            // エンコード済み dataURL をそのまま埋め込む
+            htmlContent += `
+<div class="entry">
+  <img src="${dataURL}" alt="screenshot ${i+1}">
+  <div class="reading">読み: ${(e.reading||'')}</div>
+  <div class="memo">メモ: ${(e.memo||'')}</div>
+  <div class="time"><small>${new Date(e.ts).toLocaleString()}</small></div>
+</div>
+`;
+        }
+
+        htmlContent += `</body></html>`;
+
+        // ダウンロード
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'kanji_records.html';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        log('エクスポート完了: kanji_records.html をダウンロードしました');
+        alert('エクスポートが完了しました。ファイルをダウンロードしました。');
+    } catch (err) {
+        console.error(err);
+        log('エクスポート失敗: ' + err);
+        alert('エクスポート中にエラーが発生しました。ログを確認してください。');
+    }
+}
+
+// ボタンにイベント登録（スクリプト末尾に配置）
+document.getElementById('exportBtn').addEventListener('click', exportToHTML);
 
 // 初期化
 refreshGallery();
