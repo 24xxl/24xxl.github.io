@@ -203,16 +203,18 @@ async function exportToHTML() {
 <meta charset="utf-8">
 <title>漢字記録（エクスポート）</title>
 <style>
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;padding:16px}
-.entry{margin-bottom:20px;border-bottom:1px solid #ddd;padding-bottom:12px}
-img{max-width:600px;height:auto;display:block;margin-bottom:6px}
-.reading{font-weight:700}
-.memo{color:#555}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif;margin:16px}
+.gallery{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.thumb-container{border:1px solid #ddd;padding:4px;width:150px;display:flex;flex-direction:column;align-items:center}
+.thumb-container img{width:100%;height:auto}
+.thumb-container div{margin-top:2px;word-break:break-word;text-align:center}
 </style>
 </head>
 <body>
 <h1>漢字記録（エクスポート）</h1>
+<div id="gallery" class="gallery">
 `;
+
 
         // 逐次変換（大量画像だと時間がかかります）
         for (let i = 0; i < entries.length; i++) {
@@ -222,16 +224,17 @@ img{max-width:600px;height:auto;display:block;margin-bottom:6px}
             const dataURL = await blobToDataURL(e.blob);
             // エンコード済み dataURL をそのまま埋め込む
             htmlContent += `
-<div class="entry">
+<div class="thumb-container">
   <img src="${dataURL}" alt="screenshot ${i+1}">
-  <div class="reading">読み: ${(e.reading||'')}</div>
-  <div class="memo">メモ: ${(e.memo||'')}</div>
-  <div class="time"><small>${new Date(e.ts).toLocaleString()}</small></div>
+  <div>読み: ${(e.reading||'')}</div>
+  <div>メモ: ${(e.memo||'')}</div>
+  <div><small>${new Date(e.ts).toLocaleString()}</small></div>
 </div>
 `;
+
         }
 
-        htmlContent += `</body></html>`;
+        htmlContent += `</div></body></html>`;
 
         // ダウンロード
         const blob = new Blob([htmlContent], { type: 'text/html' });
