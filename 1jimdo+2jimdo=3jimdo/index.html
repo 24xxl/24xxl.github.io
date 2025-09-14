@@ -23,6 +23,7 @@ textarea#log{width:100%;height:150px;margin-top:8px}
 <button id="stopStreamBtn">画面共有停止</button>
 <button id="clearBtn">削除</button>
 <button id="exportBtn">HTMLエクスポート</button>
+<button id="exportJsonBtn">JSONエクスポート</button>
 </div>
 
 <div id="gallery" class="gallery"></div>
@@ -253,6 +254,59 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic P
         console.error(err);
         log('エクスポート失敗: ' + err);
         alert('エクスポート中にエラーが発生しました。ログを確認してください。');
+
+        // JSONエクスポート
+async function exportToJSON() {
+    try {
+        const entries = await getAllEntries();
+        if (!entries || entries.length === 0) {
+            alert('エクスポートするデータがありません。');
+            return;
+        }
+
+        log('JSONエクスポート開始: ' + entries.length + ' 件');
+
+        // Blob を DataURL に変換して JSON にまとめる
+        let data = [];
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            log(`変換中 ${i+1}/${entries.length} ...`);
+            const dataURL = await blobToDataURL(e.blob);
+            data.push({
+                id: e.id,
+                reading: e.reading || "",
+                memo: e.memo || "",
+                ts: e.ts,
+                image: dataURL
+            });
+        }
+
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // 日付入りファイル名で保存
+        const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+        a.download = `kanji_records_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        log('JSONエクスポート完了');
+        alert('JSONエクスポートが完了しました。');
+    } catch (err) {
+        console.error(err);
+        log('JSONエクスポート失敗: ' + err);
+        alert('エクスポート中にエラーが発生しました。ログを確認してください。');
+    }
+}
+
+// ボタン登録
+document.getElementById('exportJsonBtn').addEventListener('click', exportToJSON);
+
     }
 }
 
