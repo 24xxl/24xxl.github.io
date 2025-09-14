@@ -177,7 +177,8 @@ document.getElementById('clearBtn').addEventListener('click', async ()=>{
         log('データ削除');
     }
 });
-// Blob -> DataURL（FileReader を Promise 化）
+
+// Blob -> DataURL
 function blobToDataURL(blob) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -187,7 +188,7 @@ function blobToDataURL(blob) {
     });
 }
 
-// IndexedDB の全件を HTML にまとめてダウンロードする
+// HTMLエクスポート
 async function exportToHTML() {
     try {
         const entries = await getAllEntries();
@@ -196,7 +197,7 @@ async function exportToHTML() {
             return;
         }
 
-        log('エクスポート開始: ' + entries.length + ' 件');
+        log('HTMLエクスポート開始: ' + entries.length + ' 件');
 
         let htmlContent = `<!doctype html>
 <html lang="ja">
@@ -216,14 +217,10 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic P
 <div id="gallery" class="gallery">
 `;
 
-
-        // 逐次変換（大量画像だと時間がかかります）
         for (let i = 0; i < entries.length; i++) {
             const e = entries[i];
             log(`変換中 ${i+1}/${entries.length} ...`);
-            // e.blob を dataURL に変換
             const dataURL = await blobToDataURL(e.blob);
-            // エンコード済み dataURL をそのまま埋め込む
             htmlContent += `
 <div class="thumb-container">
   <img src="${dataURL}" alt="screenshot ${i+1}">
@@ -232,12 +229,10 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic P
   <div><small>${new Date(e.ts).toLocaleString()}</small></div>
 </div>
 `;
-
         }
 
         htmlContent += `</div></body></html>`;
 
-        // ダウンロード
         const blob = new Blob([htmlContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -248,14 +243,16 @@ body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Hiragino Kaku Gothic P
         a.remove();
         URL.revokeObjectURL(url);
 
-        log('エクスポート完了: kanji_records.html をダウンロードしました');
-        alert('エクスポートが完了しました。ファイルをダウンロードしました。');
+        log('HTMLエクスポート完了');
+        alert('HTMLエクスポート完了');
     } catch (err) {
         console.error(err);
-        log('エクスポート失敗: ' + err);
-        alert('エクスポート中にエラーが発生しました。ログを確認してください。');
+        log('HTMLエクスポート失敗: ' + err);
+        alert('エクスポート中にエラーが発生しました');
+    }
+}
 
-        // JSONエクスポート
+// JSONエクスポート（独立関数）
 async function exportToJSON() {
     try {
         const entries = await getAllEntries();
@@ -266,7 +263,6 @@ async function exportToJSON() {
 
         log('JSONエクスポート開始: ' + entries.length + ' 件');
 
-        // Blob を DataURL に変換して JSON にまとめる
         let data = [];
         for (let i = 0; i < entries.length; i++) {
             const e = entries[i];
@@ -286,8 +282,6 @@ async function exportToJSON() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-
-        // 日付入りファイル名で保存
         const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
         a.download = `kanji_records_${dateStr}.json`;
         document.body.appendChild(a);
@@ -296,22 +290,20 @@ async function exportToJSON() {
         URL.revokeObjectURL(url);
 
         log('JSONエクスポート完了');
-        alert('JSONエクスポートが完了しました。');
+        alert('JSONエクスポート完了');
     } catch (err) {
         console.error(err);
         log('JSONエクスポート失敗: ' + err);
-        alert('エクスポート中にエラーが発生しました。ログを確認してください。');
+        alert('JSONエクスポート中にエラーが発生しました');
     }
 }
 
-// ボタン登録
-document.getElementById('exportJsonBtn').addEventListener('click', exportToJSON);
-
-    }
-}
-
-// ボタンにイベント登録（スクリプト末尾に配置）
+// ボタンイベント登録
+document.getElementById('captureBtn').addEventListener('click', async ()=>{/* ... 省略 ... */});
+document.getElementById('stopStreamBtn').addEventListener('click', ()=>{/* ... 省略 ... */});
+document.getElementById('clearBtn').addEventListener('click', async ()=>{/* ... 省略 ... */});
 document.getElementById('exportBtn').addEventListener('click', exportToHTML);
+document.getElementById('exportJsonBtn').addEventListener('click', exportToJSON);
 
 // 初期化
 refreshGallery();
