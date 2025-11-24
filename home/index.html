@@ -1,46 +1,49 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <title>ホーム</title>
-    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.browser.js"></script>
-    <script>
+<head>
+  <meta charset="UTF-8">
+  <title>ログインページ</title>
+
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.browser.js"></script>
+
+  <script>
     let auth0Client;
 
-      async function init() {
-        auth0Client = await createAuth0Client({
-          domain: "tera-corp.jp.auth0.com",
-          client_id: "9Po9tdWjKM5QIMqKrCKJmeaX2udjZl1j",
-          authorizationParams: {
-            redirect_uri: "https://24xxl.github.io/home/"
-          }
-        });
-
-        // Auth0からの戻り処理
-        if (location.search.includes("code=") && location.search.includes("state=")) {
-          await auth0Client.handleRedirectCallback();
-          window.history.replaceState({}, document.title, "/home/");
+    async function init() {
+      auth0Client = await createAuth0Client({
+        domain: "tera-corp.jp.auth0.com",
+        client_id: "9Po9tdWjKM5QIMqKrCKJmeaX2udjZl1j",
+        authorizationParams: {
+          redirect_uri: "https://24xxl.github.io/home/"
         }
+      });
 
-        const isAuth = await auth0Client.isAuthenticated();
-
-        if (!isAuth) {
-          // 未ログイン → トップページへ移動
-          window.location.href = "https://24xxl.github.io/";
-          return;
-        }
-
-        // ログイン済 → コンテンツ表示
-        document.getElementById("content").style.display = "block";
+      // すでにログイン済ならホームへ
+      if (await auth0Client.isAuthenticated()) {
+        window.location.href = "https://24xxl.github.io/home/";
+        return;
       }
 
-      init();
-  </script>
-  </head>
-<body>
-  <div id="content" style="display:none;">
-    <h1>ここはログイン済ユーザー専用ページです</h1>
-  </div>
-</body>
+      // 初期化が終わったらログインボタンを有効化
+      document.getElementById("login-btn").disabled = false;
+    }
 
+    async function login() {
+      // auth0Client が未初期化なら何もしない
+      if (!auth0Client) return;
+
+      await auth0Client.loginWithRedirect();
+    }
+
+    window.onload = init;
+  </script>
+
+</head>
+<body>
+  <h1>ようこそ</h1>
+  <p>ログインすると専用ページを閲覧できます。</p>
+
+  <!-- ログインボタン（初期は押せない） -->
+  <button id="login-btn" onclick="login()" disabled>ログイン</button>
+</body>
 </html>
