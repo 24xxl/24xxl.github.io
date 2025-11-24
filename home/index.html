@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ホーム</title>
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.browser.js"></script>
+    <script>
+    let auth0Client;
+
+      async function init() {
+        auth0Client = await createAuth0Client({
+          domain: "tera-corp.jp.auth0.com",
+          client_id: "9Po9tdWjKM5QIMqKrCKJmeaX2udjZl1j",
+          authorizationParams: {
+            redirect_uri: "https://24xxl.github.io/home/"
+          }
+        });
+
+        // Auth0からの戻り処理
+        if (location.search.includes("code=") && location.search.includes("state=")) {
+          await auth0Client.handleRedirectCallback();
+          window.history.replaceState({}, document.title, "/home/");
+        }
+
+        const isAuth = await auth0Client.isAuthenticated();
+
+        if (!isAuth) {
+          // 未ログイン → トップページへ移動
+          window.location.href = "https://24xxl.github.io/";
+          return;
+        }
+
+        // ログイン済 → コンテンツ表示
+        document.getElementById("content").style.display = "block";
+      }
+
+      init();
+  </script>
+  </head>
+<body>
+  <div id="content" style="display:none;">
+    <h1>ここはログイン済ユーザー専用ページです</h1>
+  </div>
+</body>
+
+</html>
