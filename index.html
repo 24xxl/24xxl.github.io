@@ -1,8 +1,44 @@
 <!DOCTYPE html>
-<html>
-  <head>
-  </head>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログインページ</title>
+
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.browser.js"></script>
+
+  <script>
+    let auth0Client;
+
+    async function init() {
+      auth0Client = await createAuth0Client({
+        domain: "YOUR_DOMAIN",       // ← 設定を反映
+        client_id: "YOUR_CLIENT_ID", // ← 設定を反映
+        authorizationParams: {
+          redirect_uri: "https://24xxl.github.io/home/"
+        }
+      });
+
+      const isAuth = await auth0Client.isAuthenticated();
+
+      if (isAuth) {
+        // すでにログイン済みなら /home に飛ばす
+        window.location.href = "https://24xxl.github.io/home/";
+      }
+    }
+
+    init();
+
+    async function login() {
+      await auth0Client.loginWithRedirect();
+    }
+  </script>
+
+</head>
 <body>
-  <p>this is a test pages lol</p>
+  <h1>ようこそ</h1>
+  <p>ログインすると専用ページを閲覧できます。</p>
+
+  <!-- ログインボタン -->
+  <button onclick="login()">ログイン</button>
 </body>
 </html>
