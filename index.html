@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>ログインページ</title>
 
+  <!-- Auth0 SDK を先に読み込む（超重要） -->
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.5/auth0-spa-js.production.browser.js"></script>
 
   <script>
@@ -13,6 +14,10 @@
       // ボタンを一時的に無効化
       document.getElementById("login-btn").disabled = true;
 
+      // Auth0 SDK が読み込まれているかチェック
+      console.log("createAuth0Client:", typeof createAuth0Client);
+
+      // Auth0 クライアントを作成
       auth0Client = await createAuth0Client({
         domain: "tera-corp.jp.auth0.com",
         client_id: "9Po9tdWjKM5QIMqKrCKJmeaX2udjZl1j",
@@ -28,7 +33,7 @@
         return;
       }
 
-      // 初期化完了 → ボタンを有効化
+      // 初期化完了
       document.getElementById("login-btn").disabled = false;
     }
 
@@ -38,13 +43,12 @@
 
     window.onload = init;
   </script>
-
 </head>
+
 <body>
   <h1>ようこそ</h1>
   <p>ログインすると専用ページを閲覧できます。</p>
 
-  <!-- 初期化完了まで disabled -->
   <button id="login-btn" onclick="login()">ログイン</button>
 </body>
 </html>
